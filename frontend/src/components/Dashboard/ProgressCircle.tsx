@@ -17,8 +17,7 @@ export const ProgressCircle: React.FC<ProgressCircleProps> = ({
   weeklyProgress,
   currentStreak,
   coinsEarned,
-  level,
-  levelProgress
+  level
 }) => {
   return (
     <div className="flex justify-center mb-6">
