@@ -9,8 +9,10 @@ import { telegramService } from '@/lib/telegram';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/Button';
 
+type ScreenType = 'dashboard' | 'create-task' | 'analytics' | 'achievements' | 'shop' | 'profile';
+
 interface DashboardScreenProps {
-  onNavigate: (screen: string) => void;
+  onNavigate: (screen: ScreenType) => void;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
