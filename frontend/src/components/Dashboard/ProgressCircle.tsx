@@ -9,7 +9,6 @@ interface ProgressCircleProps {
   currentStreak: number;
   coinsEarned: number;
   level: number;
-  levelProgress: number;
 }
 
 export const ProgressCircle: React.FC<ProgressCircleProps> = ({
