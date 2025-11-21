@@ -1,7 +1,7 @@
 import React from 'react';
 import { ProgressRing } from '@/components/ui/ProgressRing';
-import { Coins, Trophy, Target, TrendingUp } from 'lucide-react';
-import { formatCoins, getStreakMessage } from '@/lib/utils';
+import { Coins, Trophy } from 'lucide-react';
+import { formatCoins } from '@/lib/utils';
 
 interface ProgressCircleProps {
   dailyProgress: number;
