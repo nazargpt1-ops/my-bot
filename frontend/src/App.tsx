@@ -7,7 +7,7 @@ import './index.css';
 type ScreenType = 'dashboard' | 'create-task' | 'analytics' | 'achievements' | 'shop' | 'profile';
 
 function App() {
-  const { authenticate, isAuthenticated, user, isLoading } = useAuthStore();
+  const { authenticate, isAuthenticated, isLoading } = useAuthStore();
   const [currentScreen, setCurrentScreen] = React.useState<ScreenType>('dashboard');
 
   useEffect(() => {
