@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { getStreakMessage } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface StreakBannerProps {
   currentStreak: number;
