@@ -174,7 +174,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               currentStreak={currentStreak}
               coinsEarned={coinsEarnedToday}
               level={level}
-              levelProgress={levelProgress}
             />
 
             {/* Streak Banner */}
