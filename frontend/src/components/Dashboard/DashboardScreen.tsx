@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ProgressCircle } from './ProgressCircle';
 import { StreakBanner } from './StreakBanner';
 import { TaskList } from './TaskList';
-import { User, Task, CompletedTask } from '@/types';
+import { Task, CompletedTask } from '@/types';
 import { useAuthStore } from '@/store/useAuthStore';
 import { telegramService } from '@/lib/telegram';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
