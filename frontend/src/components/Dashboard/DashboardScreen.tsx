@@ -1,237 +1,200 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { ProgressCircle } from './ProgressCircle';
-import { StreakBanner } from './StreakBanner';
-import { TaskList } from './TaskList';
-import { Task, CompletedTask } from '@/types';
-import { useAuthStore } from '@/store/useAuthStore';
-import { telegramService } from '@/lib/telegram';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { Button } from '@/components/ui/Button';
-
-type ScreenType = 'dashboard' | 'create-task' | 'analytics' | 'achievements' | 'shop' | 'profile';
+import { useAuthStore } from '../../store/useAuthStore';
+import { supabase } from '../../lib/supabase';
+import { Task, TaskStatus } from '../../types';
+import { TaskCard } from './TaskCard';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { AnimatePresence } from 'framer-motion';
+import { Plus, Trophy, Flame, Coins } from 'lucide-react';
 
 interface DashboardScreenProps {
-  onNavigate: (screen: ScreenType) => void;
+  onNavigate: (screen: 'create-task' | 'analytics' | 'achievements' | 'shop' | 'profile') => void;
 }
 
-export const DashboardScreen: React.FC<DashboardScreenProps> = ({
-  onNavigate
-}) => {
-  const { user, isAuthenticated } = useAuthStore();
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) => {
+  const { user, updateUserCoins } = useAuthStore();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [completedTasks, setCompletedTasks] = useState<CompletedTask[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Calculate dashboard stats
-  const todayTasksCount = tasks.filter(task => {
-    // Add logic to filter tasks for today based on recurrence
-    return task.is_active;
-  }).length;
-
-  const completedTaskIds = new Set(completedTasks.map(ct => ct.task_id));
-  const completedTodayCount = completedTasks.filter(ct => {
-    const today = new Date().toDateString();
-    return new Date(ct.completion_date).toDateString() === today;
-  }).length;
-
-  const dailyProgress = todayTasksCount > 0 ? (completedTodayCount / todayTasksCount) * 100 : 0;
-  const weeklyProgress = 65; // Placeholder - calculate from weekly tasks
-  const coinsEarnedToday = completedTasks
-    .filter(ct => {
-      const today = new Date().toDateString();
-      return new Date(ct.completion_date).toDateString() === today;
-    })
-    .reduce((sum, ct) => sum + ct.coins_earned + ct.streak_bonus + ct.completion_bonus, 0);
-
-  const currentStreak = user?.current_streak || 0;
-  const longestStreak = user?.longest_streak || 0;
-  const level = user?.level || 1;
-  const levelProgress = 75; // Placeholder - calculate from XP
+  const [loading, setLoading] = useState(true);
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Set up Telegram main button for task creation
-    if (telegramService.isAvailable) {
-      telegramService.showMainButton('Add Task', () => {
-        onNavigate('create-task');
-      });
-      telegramService.enableMainButton();
-    }
+    fetchTasks();
+  }, [user]);
 
-    return () => {
-      telegramService.hideMainButton();
-    };
-  }, [onNavigate]);
+  const fetchTasks = async () => {
+    if (!user) return;
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    setIsLoading(true);
     try {
-      // Load tasks and completed tasks
-      // This would be replaced with actual API calls
-      const mockTasks: Task[] = [
-        {
-          task_id: '1',
-          user_id: user?.user_id || '',
-          title: 'Morning workout',
-          description: '30 minutes of exercise',
-          category: 'sport',
-          priority: 'high',
-          recurrence_type: 'daily',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          coin_value: 18
-        },
-        {
-          task_id: '2',
-          user_id: user?.user_id || '',
-          title: 'Read for 30 minutes',
-          description: 'Read a book or article',
-          category: 'learning',
-          priority: 'medium',
-          recurrence_type: 'daily',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          coin_value: 15
-        }
-      ];
+      setLoading(true);
+      // Fetch active tasks for the user
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.user_id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
 
-      setTasks(mockTasks);
+      if (error) throw error;
+
+      if (data) {
+        // Map DB fields to Task Interface
+        const mappedTasks: Task[] = data.map((t: any) => ({
+          id: t.task_id,
+          user_id: t.user_id,
+          title: t.title,
+          description: t.description,
+          priority: t.priority,
+          category: t.category,
+          status: t.is_active ? 'pending' : 'completed',
+          coins_reward: t.coin_value,
+          created_at: t.created_at,
+          due_time: t.due_time
+        }));
+        setTasks(mappedTasks);
+      }
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      console.error('Error fetching tasks:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleTaskComplete = async (taskId: string) => {
+  const handleCompleteTask = async (task: Task) => {
+    if (!user) return;
+    setCompletingTaskId(task.id);
+
     try {
-      // Mark task as completed
-      // This would make an API call to complete the task
+      // 1. Mark task as inactive in DB
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update({ is_active: false })
+        .eq('task_id', task.id);
 
-      // Animate completion
-      telegramService.vibrate('medium');
+      if (updateError) throw updateError;
 
-      // Update local state
-      const completedTask: CompletedTask = {
-        completion_id: Date.now().toString(),
-        user_id: user?.user_id || '',
-        task_id: taskId,
-        completion_date: new Date().toISOString().split('T')[0],
-        completed_at: new Date().toISOString(),
-        coins_earned: 10,
-        streak_bonus: 2,
-        completion_bonus: 0,
-      };
+      // 2. Insert into completed_tasks to trigger DB logic (streaks, achievements)
+      const { error: insertError } = await supabase
+        .from('completed_tasks')
+        .insert({
+          user_id: user.user_id,
+          task_id: task.id,
+          completion_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+          coins_earned: task.coins_reward
+        });
 
-      setCompletedTasks(prev => [...prev, completedTask]);
+      if (insertError) {
+        console.error('Error logging completion:', insertError);
+        // We continue anyway to update UI
+      }
+
+      // 3. Optimistic UI update
+      setTasks(prev => prev.filter(t => t.id !== task.id));
+      updateUserCoins(task.coins_reward);
+
+      // 4. (Optional) Show success animation or toast here
+
     } catch (error) {
-      console.error('Failed to complete task:', error);
+      console.error('Error completing task:', error);
+      alert('Failed to complete task. Please try again.');
+    } finally {
+      setCompletingTaskId(null);
     }
   };
 
-  const handleAddTask = () => {
-    onNavigate('create-task');
-  };
-
-  if (isAuthenticated && user) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="min-h-screen bg-background p-4 space-y-4"
-      >
-        {/* Header with user info */}
-        <div className="text-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Welcome back, {user.full_name?.split(' ')[0] || 'User'}! 👋
-          </h1>
-          <div className="flex justify-center items-center gap-4 text-sm text-gray-600">
-            <div className="flex items-center gap-1">
-              <span>🏆</span>
-              <span>Level {user.level}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span>🪙</span>
-              <span>{user.total_coins.toLocaleString()} coins</span>
-            </div>
+  return (
+    <div className="min-h-screen bg-gray-50 pb-24 relative">
+      {/* Header Stats */}
+      <div className="bg-white p-6 rounded-b-3xl shadow-sm z-10 relative">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Hello, {user?.username || 'Hero'}! 👋</h1>
+            <p className="text-gray-500 text-sm">Let's crush some goals today.</p>
+          </div>
+          <div 
+            onClick={() => onNavigate('profile')}
+            className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer"
+          >
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold">
+                {user?.username?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <LoadingSpinner size="lg" />
+        <div className="flex gap-4">
+          <div className="flex-1 bg-amber-50 p-3 rounded-2xl flex items-center gap-3 border border-amber-100">
+            <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
+              <Coins size={20} />
+            </div>
+            <div>
+              <p className="text-xs text-amber-600 font-bold uppercase tracking-wide">Coins</p>
+              <p className="text-lg font-black text-gray-900">{user?.total_coins || 0}</p>
+            </div>
+          </div>
+          <div className="flex-1 bg-blue-50 p-3 rounded-2xl flex items-center gap-3 border border-blue-100">
+            <div className="bg-blue-100 p-2 rounded-xl text-blue-600">
+              <Flame size={20} />
+            </div>
+            <div>
+              <p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Streak</p>
+              <p className="text-lg font-black text-gray-900">{user?.current_streak || 0}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Task List */}
+      <div className="p-4 mt-2">
+        <div className="flex justify-between items-end mb-4 px-1">
+          <h2 className="text-lg font-bold text-gray-800">Your Tasks</h2>
+          <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md shadow-sm border border-gray-100">
+            {tasks.length} Pending
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <LoadingSpinner />
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
+            <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+              💤
+            </div>
+            <h3 className="text-gray-900 font-medium mb-1">No tasks yet</h3>
+            <p className="text-gray-500 text-sm mb-4">You're all caught up! Or maybe...</p>
+            <button
+              onClick={() => onNavigate('create-task')}
+              className="text-primary font-medium text-sm hover:underline"
+            >
+              Add a new task
+            </button>
           </div>
         ) : (
-          <>
-            {/* Progress Circle */}
-            <ProgressCircle
-              dailyProgress={dailyProgress}
-              weeklyProgress={weeklyProgress}
-              currentStreak={currentStreak}
-              coinsEarned={coinsEarnedToday}
-              level={level}
-            />
-
-            {/* Streak Banner */}
-            <StreakBanner
-              currentStreak={currentStreak}
-              longestStreak={longestStreak}
-            />
-
-            {/* Task List */}
-            <TaskList
-              tasks={tasks}
-              completedTaskIds={completedTaskIds}
-              onTaskComplete={handleTaskComplete}
-              onAddTask={handleAddTask}
-              isLoading={isLoading}
-            />
-          </>
+          <AnimatePresence>
+            {tasks.map(task => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onComplete={handleCompleteTask}
+                isCompleting={completingTaskId === task.id}
+              />
+            ))}
+          </AnimatePresence>
         )}
+      </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-4 pt-4">
-          <Button
-            variant="ghost"
-            onClick={() => onNavigate('analytics')}
-            className="flex flex-col items-center gap-1 h-auto py-3"
-          >
-            <span className="text-xl">📊</span>
-            <span className="text-xs">Stats</span>
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => onNavigate('achievements')}
-            className="flex flex-col items-center gap-1 h-auto py-3"
-          >
-            <span className="text-xl">🏅</span>
-            <span className="text-xs">Awards</span>
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => onNavigate('shop')}
-            className="flex flex-col items-center gap-1 h-auto py-3"
-          >
-            <span className="text-xl">🛍️</span>
-            <span className="text-xs">Shop</span>
-          </Button>
-        </div>
-      </motion.div>
-    );
-  }
-
-  // Loading or authentication screen
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="text-center">
-        <LoadingSpinner size="lg" />
-        <p className="mt-4 text-gray-600">Loading HabitFlow...</p>
+      {/* Floating Action Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          onClick={() => onNavigate('create-task')}
+          className="bg-primary hover:bg-primary/90 text-white w-14 h-14 rounded-full shadow-lg shadow-primary/30 flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+        >
+          <Plus size={28} />
+        </button>
       </div>
     </div>
   );
