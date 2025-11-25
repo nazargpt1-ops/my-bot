@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { DashboardScreen } from './components/Dashboard/DashboardScreen';
+import { CreateTaskScreen } from './components/CreateTaskScreen';
 import { useAuthStore } from './store/useAuthStore';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import './index.css';
@@ -23,65 +24,15 @@ function App() {
       case 'dashboard':
         return <DashboardScreen onNavigate={handleNavigate} />;
       case 'create-task':
-        return (
-          <div className="min-h-screen bg-background flex items-center justify-center p-4">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4">Create Task</h1>
-              <p className="text-gray-600">Task creation screen coming soon...</p>
-              <button
-                onClick={() => handleNavigate('dashboard')}
-                className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-        );
+        return <CreateTaskScreen onNavigate={handleNavigate} />;
       case 'analytics':
-        return (
-          <div className="min-h-screen bg-background flex items-center justify-center p-4">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4">Analytics</h1>
-              <p className="text-gray-600">Analytics screen coming soon...</p>
-              <button
-                onClick={() => handleNavigate('dashboard')}
-                className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-        );
+        return <PlaceholderScreen title="Analytics" onBack={() => handleNavigate('dashboard')} />;
       case 'achievements':
-        return (
-          <div className="min-h-screen bg-background flex items-center justify-center p-4">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4">Achievements</h1>
-              <p className="text-gray-600">Achievements screen coming soon...</p>
-              <button
-                onClick={() => handleNavigate('dashboard')}
-                className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-        );
+        return <PlaceholderScreen title="Achievements" onBack={() => handleNavigate('dashboard')} />;
       case 'shop':
-        return (
-          <div className="min-h-screen bg-background flex items-center justify-center p-4">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4">Shop</h1>
-              <p className="text-gray-600">Shop screen coming soon...</p>
-              <button
-                onClick={() => handleNavigate('dashboard')}
-                className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-        );
+        return <PlaceholderScreen title="Shop" onBack={() => handleNavigate('dashboard')} />;
+      case 'profile':
+        return <PlaceholderScreen title="Profile" onBack={() => handleNavigate('dashboard')} />;
       default:
         return <DashboardScreen onNavigate={handleNavigate} />;
     }
@@ -93,36 +44,52 @@ function App() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" />
-          <p className="mt-4 text-gray-600">Loading HabitFlow...</p>
+          <p className="mt-4 text-gray-600 font-medium animate-pulse">Loading HabitFlow...</p>
         </div>
       </div>
     );
   }
 
-  // Authentication error or not available
-  // Временно отключили проверку
-if (false) {
+  // Not Authenticated
+  if (!isAuthenticated && !isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center max-w-sm">
-          <div className="text-6xl mb-4">🎯</div>
-          <h1 className="text-2xl font-bold mb-2">Welcome to HabitFlow</h1>
-          <p className="text-gray-600 mb-4">
-            A gamified task management app to help you build productive habits and achieve your goals.
-          </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
-            <p>Please open this app through Telegram to get started.</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-white flex items-center justify-center p-6">
+         <div className="text-center max-w-sm">
+            <div className="text-6xl mb-6">🎯</div>
+            <h1 className="text-2xl font-bold mb-2 text-gray-900">HabitFlow</h1>
+            <p className="text-gray-500 mb-6">Authentication failed. Please open this app via Telegram.</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-gray-900 text-white rounded-lg font-medium"
+            >
+              Retry
+            </button>
+         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white shadow-xl">
+    <div className="max-w-md mx-auto bg-gray-50 min-h-screen shadow-2xl overflow-hidden">
       {renderScreen()}
     </div>
   );
 }
+
+// Helper for placeholder screens
+const PlaceholderScreen = ({ title, onBack }: { title: string; onBack: () => void }) => (
+  <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="text-center">
+      <h1 className="text-2xl font-bold mb-2">{title}</h1>
+      <p className="text-gray-500 mb-6">This feature is coming soon...</p>
+      <button
+        onClick={onBack}
+        className="px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+      >
+        Back to Dashboard
+      </button>
+    </div>
+  </div>
+);
 
 export default App;
