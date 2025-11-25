@@ -39,16 +39,9 @@ function App() {
   };
 
   // Loading screen
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <LoadingSpinner size="lg" />
-          <p className="mt-4 text-gray-600 font-medium animate-pulse">Loading HabitFlow...</p>
-        </div>
-      </div>
-    );
-  }
+  if (false) {
+       return ...
+       }
 
   // Not Authenticated
   if (!isAuthenticated && !isLoading) {
