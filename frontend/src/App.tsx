@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { DashboardScreen } from './components/Dashboard/DashboardScreen';
 import { CreateTaskScreen } from './components/CreateTaskScreen';
 import { useAuthStore } from './store/useAuthStore';
+
+const SKIP_AUTH = process.env.REACT_APP_SKIP_AUTH === 'true';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import './index.css';
 
@@ -45,8 +47,7 @@ function App() {
        }
 
   // Not Authenticated
-  if (!isAuthenticated && !isLoading) {
-    return (
+if (!isAuthenticated && !isLoading && !SKIP_AUTH) {    return (
       <div className="min-h-screen bg-white flex items-center justify-center p-6">
          <div className="text-center max-w-sm">
             <div className="text-6xl mb-6">🎯</div>
