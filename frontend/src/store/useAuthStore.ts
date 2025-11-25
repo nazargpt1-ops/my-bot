@@ -1,131 +1,91 @@
 import { create } from 'zustand';
-import { User } from '@/types';
-import { authService } from '@/lib/auth';
+import { supabase } from '../lib/supabase';
+import { User } from '../types';
 
 interface AuthState {
   user: User | null;
-  isLoading: boolean;
-  error: string | null;
   isAuthenticated: boolean;
-}
-
-interface AuthActions {
+  isLoading: boolean;
   authenticate: () => Promise<void>;
-  getCurrentUser: () => Promise<void>;
-  updateUser: (updates: Partial<User>) => Promise<void>;
-  clearError: () => void;
-  reset: () => void;
+  updateUserCoins: (coins: number) => void;
 }
 
-type AuthStore = AuthState & AuthActions;
-
-export const useAuthStore = create<AuthStore>((set, get) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  isLoading: false,
-  error: null,
   isAuthenticated: false,
+  isLoading: false,
 
   authenticate: async () => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true });
 
     try {
-      const response = await authService.authenticateWithTelegram();
+      // 1. Check if running in Telegram WebApp
+      // @ts-ignore
+      const telegram = window.Telegram?.WebApp;
+      
+      let userId: string | null = null;
+      let telegramId: number | null = null;
 
-      if (response.success && response.data) {
-        set({
-          user: response.data,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null
-        });
+      if (telegram && telegram.initDataUnsafe?.user) {
+        // Production: Use Telegram Data
+        telegramId = telegram.initDataUnsafe.user.id;
+        
+        // Simple fetch to get user by telegram_id
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('telegram_id', telegramId)
+          .single();
+
+        if (existingUser) {
+          set({ user: existingUser, isAuthenticated: true });
+        } else {
+          // If user doesn't exist, we would usually create one here
+          // For now, we assume user exists or handling registration separately
+          console.log('User not found in DB, standard registration flow needed');
+        }
       } else {
-        set({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: response.error || 'Authentication failed'
-        });
+        // DEV MODE: Browser testing without Telegram
+        console.warn('Running in Dev/Browser mode. Using Mock User.');
+        
+        // Try to find a dev user or create a session. 
+        // For this core loop demo, we will check if we have a session.
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+           // Attempt anonymous sign in for RLS to work (if enabled in Supabase)
+           await supabase.auth.signInAnonymously();
+        }
+
+        // We'll set a mock user state so the UI works. 
+        // In a real app, we'd fetch the user associated with the anon session.
+        const mockUser: User = {
+          user_id: (await supabase.auth.getUser()).data.user?.id || 'dev-user-id',
+          telegram_id: 123456789,
+          username: 'dev_hero',
+          full_name: 'Developer Hero',
+          level: 5,
+          total_coins: 150,
+          current_streak: 3,
+          longest_streak: 5,
+          experience_points: 1200
+        };
+        
+        set({ user: mockUser, isAuthenticated: true });
       }
+
     } catch (error) {
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: 'Authentication service error'
-      });
+      console.error('Authentication failed:', error);
+      set({ isAuthenticated: false });
+    } finally {
+      set({ isLoading: false });
     }
   },
 
-  getCurrentUser: async () => {
-    const { user } = get();
-    if (user) return; // Already have user data
-
-    set({ isLoading: true, error: null });
-
-    try {
-      const response = await authService.getCurrentUser();
-
-      if (response.success && response.data) {
-        set({
-          user: response.data,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null
-        });
-      } else {
-        set({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: response.error || 'Failed to get user'
-        });
-      }
-    } catch (error) {
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: 'Failed to get user data'
-      });
+  updateUserCoins: (coins) => {
+    const user = get().user;
+    if (user) {
+      set({ user: { ...user, total_coins: user.total_coins + coins } });
     }
-  },
-
-  updateUser: async (updates: Partial<User>) => {
-    set({ isLoading: true, error: null });
-
-    try {
-      const response = await authService.updateUser(updates);
-
-      if (response.success && response.data) {
-        set({
-          user: response.data,
-          isLoading: false,
-          error: null
-        });
-      } else {
-        set({
-          isLoading: false,
-          error: response.error || 'Failed to update user'
-        });
-      }
-    } catch (error) {
-      set({
-        isLoading: false,
-        error: 'Failed to update user data'
-      });
-    }
-  },
-
-  clearError: () => {
-    set({ error: null });
-  },
-
-  reset: () => {
-    set({
-      user: null,
-      isLoading: false,
-      error: null,
-      isAuthenticated: false
-    });
   }
 }));
